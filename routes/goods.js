@@ -71,17 +71,11 @@ router.post('/addCart', (req, res) => {
     // 商品id
     const productId = req.body.productId;
     // 通过userId查找用户
-    Users.findOne({userId}, (err, doc) => {
-        if (err) {
-            res.json({
-                status: 1,
-                msg: err.message
-            });
-            return;
-        }
+    Users.findOne({userId})
+    .then(doc => {
+        if (!doc) { return; }
         // 判断该商品是否已经加入购物车
         let added = false;
-        // console.log(doc);
         doc.cartList.forEach(item => {
             // 已加入
             if (item.productId == productId) {
@@ -90,51 +84,55 @@ router.post('/addCart', (req, res) => {
                 return;
             }
         });
-        // 已加入，修改数据库
+        // 已添加
         if (added) {
-            doc.save((err2, doc2) => {
-                if (err2) {
-                    res.json({
-                        status: 1,
-                        msg: err2.message
-                    });
-                    return;
-                }
-                res.json({
-                    status: 0,
-                    msg: '添加成功'
-                });
-            });
-            return;
+            saveDB(doc);
+        } else {
+            // 未添加
+            return doc;
         }
-        // 未曾添加过
-        Goods.findOne({productId}, (err3, doc3) => {
-            if (err3) {
-                res.json({
-                    status: 1,
-                    msg: err3.message
-                });
-                return;
+    })
+    .then(doc => {
+        if (!doc) { return; }
+        // 未添加
+        Goods.findOne({productId})
+        .then(doc3 => {
+            if (doc3) {
+                doc3.productNum = '1';
+                doc3.checked = '1';
+                doc.cartList.push(doc3);
+                saveDB(doc);
             }
-            const good = doc3.toObject();
-            good.productNum = '1';
-            good.checked = '1';
-            doc.cartList.push(good);
-            doc.save((err4, doc4) => {
-                if (err4) {
-                    res.json({
-                        status: 1,
-                        msg: err4.message
-                    });
-                    return;
-                }
-                res.json({
-                    status: 0,
-                    msg: '添加成功'
-                });
-            });
-        });
+        })
+        .catch(err3 => {
+            res.json({
+                status: 1,
+                msg: err3.message
+            })
+        })
+    })
+    .catch(err => {
+        res.json({
+            status: 1,
+            msg: err.message
+        })
     });
+    // 添加到数据库
+    function saveDB(doc) {
+        doc.save()
+        .then(doc2 => {
+            res.json({
+                status: 0,
+                msg: '添加成功'
+            })
+        })
+        .catch(err2 => {
+            res.json({
+                status: 1,
+                msg: err2.message
+            })
+        })
+    }
 });
 
 module.exports = router;
